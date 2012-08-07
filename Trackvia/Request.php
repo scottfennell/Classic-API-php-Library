@@ -87,6 +87,7 @@ class Request
             foreach ($this->headers as $name => $value) {
                 $headers[] = "$name: $value";
             }
+            print_r($headers);
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
 

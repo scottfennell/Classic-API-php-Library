@@ -91,7 +91,7 @@ class Authentication extends EventDispatcher
      * Whether or not user creds are provided
      * @return boolean
      */
-    private function hasUserCreds()
+    public function hasUserCreds()
     {
         return ( 
             !empty($this->userCreds) && 
@@ -133,7 +133,7 @@ class Authentication extends EventDispatcher
      */
     public function getAccessToken()
     {
-        return $this->tokenData['access_token'];
+        return isset($this->tokenData['access_token']) ? $this->tokenData['access_token'] : null;
     }
 
     /**
@@ -142,7 +142,17 @@ class Authentication extends EventDispatcher
      */
     public function hasRefreshToken()
     {
-        return !empty($this->tokenData) && isset($this->tokenData['refresh_token']) && $this->tokenData['refresh_token'] != '';
+        if( !empty($this->tokenData) && isset($this->tokenData['refresh_token']) && $this->tokenData['refresh_token']) {
+            $retval = true;
+            $token = $this->tokenData['refresh_token'];
+        } else {
+            $retval = false;
+            $token = null;
+        }
+
+        $this->trigger('has_refresh_token', array('refresh_token' => $token));
+
+        return $retval;
     }
 
     /**
@@ -151,9 +161,7 @@ class Authentication extends EventDispatcher
      */
     public function getRefreshToken()
     {
-        $token = $this->tokenData['refresh_token'];
-        $this->trigger('has_refresh_token', array('refresh_token' => $token));
-        return $token;
+        return isset($this->tokenData['refresh_token']) ? $this->tokenData['refresh_token'] : null;
     }
 
     public function getExpiresAt()
@@ -186,7 +194,7 @@ class Authentication extends EventDispatcher
      * We check the expired_at time that should be set by the client.
      * @return boolean
      */
-    private function isAccessTokenExpired()
+    public function isAccessTokenExpired()
     {
         if (!isset($this->tokenData['expires_at']) || $this->tokenData['expires_at'] <= time()) {
             return true;
@@ -200,7 +208,7 @@ class Authentication extends EventDispatcher
      * 
      * @return boolean
      */
-    private function isAccessTokenValid()
+    public function isAccessTokenValid()
     {
         $retval = $this->hasAccessToken() && !$this->isAccessTokenExpired();
         $this->trigger('is_token_valid', array('is_valid' => $retval));
@@ -226,9 +234,10 @@ class Authentication extends EventDispatcher
             return false;
         }
 
-        if ($httpCode == 400 && isset($response['error_description'])) {
+        if ($httpCode == 400 && isset($response['error'])) {
             // throw an Exception with the returned error message
-            throw new \Exception($response['error_description']);
+            $msg = isset($response['error_description']) ? $response['error_description'] : $response['error'];
+            throw new \Exception($msg);
 
             return false;
         }
@@ -254,7 +263,6 @@ class Authentication extends EventDispatcher
 
         $this->request
             ->setMethod('post')
-            ->setContentType('application/x-www-form-urlencoded')
             ->setData(array(
                 'client_id'     => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -264,9 +272,9 @@ class Authentication extends EventDispatcher
             ))
             ->send($url);
 
-        $vaild = $this->checkResponse();
+        $valid = $this->checkResponse();
 
-        if ($vaild) {
+        if ($valid) {
             $this->tokenData = $this->request->getResponse();
             $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
 
@@ -295,7 +303,6 @@ class Authentication extends EventDispatcher
 
         $this->request
             ->setMethod('post')
-            ->setContentType('application/x-www-form-urlencoded')
             ->setData(array(
                 'client_id'     => $this->clientId,
                 'client_secret' => $this->clientSecret,
@@ -304,9 +311,9 @@ class Authentication extends EventDispatcher
             ))
             ->send($url);
 
-        $vaild = $this->checkResponse();
+        $valid = $this->checkResponse();
 
-        if ($vaild) {
+        if ($valid) {
             $this->tokenData = $this->request->getResponse();
             $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
 
@@ -326,9 +333,11 @@ class Authentication extends EventDispatcher
      */
     public function authenticate()
     {
-        $response = true;
+        $response = false;
         
-        if (!$this->isAccessTokenValid()) {
+        if ($this->isAccessTokenValid()) {
+            $response = true;
+        } else {
             if (!$this->hasRefreshToken()) {
                 // no tokens available, so we need to request new ones
                 
@@ -341,15 +350,13 @@ class Authentication extends EventDispatcher
                 }
 
                 //TODO add support for redirecting user to auth trackvia endpoint
-
             } 
-            elseif ($this->hasRefreshToken()) {
+            else {
                 // use the refresh token to get a new access token
                 try {
                     $response = $this->requestTokenWithRefreshToken($this->getRefreshToken());
                 } 
                 catch (\Exception $e) {
-                    print_r($e->getmessage());
                     switch ($e->getMessage()) {
                         case Api::EXPIRED_REFRESH_TOKEN:
                             $this->trigger('refresh_token_expired');
@@ -368,12 +375,12 @@ class Authentication extends EventDispatcher
         return $response;
     }
 
-    private function getAuthUrl()
+    public function getAuthUrl()
     {
         return Api::BASE_URL . self::AUTH_URL;
     }
 
-    private function getTokenUrl()
+    public function getTokenUrl()
     {
         return Api::BASE_URL . self::TOKEN_URL;
     }

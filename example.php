@@ -5,13 +5,16 @@ require 'Trackvia/Log.php';
 use Trackvia\Api;
 use Trackvia\Log;
 
-// Set your API client credentials
-$clientId = 'your_client_key';
-$clientSecret = 'your_client_secrect';
-
-// username and password to request an Access Token
-$username = 'testuser';
-$password = 'testpass';
+// Create a TrackviaApi object with your clientId and secret.
+// The client_id and secret are only used when you need to request a new access token.
+$tv = new Api(array(
+    'client_id'     => 'your_client_id',
+    'client_secret' => 'your_client_secret'
+    
+    // You can optionally pass in the user credentials here too
+    // 'username'      => 'sample_username',
+    // 'password'      => 'sample_password'
+));
 
 // load the saved token for this user
 function load_saved_token_data()
@@ -28,18 +31,23 @@ function load_saved_token_data()
 }
 $savedToken = load_saved_token_data();
 
+// If there is saved token data to use, set it now
+if (!empty($savedToken) && isset($savedToken['access_token'])) {
+
+    $tv->setTokenData(array(
+        'access_token'  => $savedToken['access_token'],
+        'refresh_token' => $savedToken['refresh_token'],
+        'expires_at'    => $savedToken['expires_at']
+    ));
+
+} else {
+    // No token data.
+    // So you need to get the user credentials for authentication.
+    $tv->setUserCreds('sample_username', 'sample_password');
+}
+
 // extra parameters to pass in for the "new_token" event callback
 $extraParams = array('extra_params' => 'this can be whatever you want');
-
-
-// Create a TrackviaApi object with your clientId and secret.
-// The client_id and secret are only used when you need to request a new access token.
-$tv = new Api(array(
-    'client_id'      => $clientId,
-    'client_secret'  => $clientSecret,
-    'username'       => $username,
-    'password'       => $password
-));
 
 // attach a listener function for when a new token is generated so you can save it to a database
 $tv->on('new_token', function ($tokenData, $extraParams) {
@@ -55,22 +63,13 @@ $tv->on('new_token', function ($tokenData, $extraParams) {
 
 }, $extraParams);
 
-// If there is saved token data to use, set it now
-if (!empty($savedToken) && isset($savedToken['access_token'])) {
-
-    $tv->setTokenData(array(
-        'access_token'  => $savedToken['access_token'],
-        'refresh_token' => $savedToken['refresh_token'],
-        'expires_at'    => $savedToken['expires_at']
-    ));
-
-}
-
-// setup the logger for debugging
-// $authLog = new Log($tv->getAuthentication());
-// $log = new Log($tv);
-
 /*
+
+//********************* 
+// Setup the logger for debugging (optional)
+//*********************
+$authLog = new Log($tv->getAuthentication());
+$log = new Log($tv);
 
 //*********************
 // Get a list of all apps accessible by the user

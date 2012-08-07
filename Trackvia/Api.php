@@ -1,9 +1,9 @@
 <?php
 namespace Trackvia;
 
-require 'EventDispatcher.php';
-require 'Request.php';
-require 'Authentication.php';
+require_once 'EventDispatcher.php';
+require_once 'Request.php';
+require_once 'Authentication.php';
 
 class Api extends EventDispatcher
 {
@@ -75,12 +75,17 @@ class Api extends EventDispatcher
     }
 
     /**
-     * Set the tokend ata for authentication
-     * @param [type] $tokenData [description]
+     * Set the token data for authentication
+     * @param array $tokenData
      */
     public function setTokenData($tokenData)
     {
         $this->auth->setTokenData($tokenData);
+    }
+
+    public function setUserCredentials($username, $password)
+    {
+        $this->auth->setUserCreds($username, $password);
     }
 
     public function getAuthentication()
