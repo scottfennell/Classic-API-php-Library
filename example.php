@@ -6,12 +6,12 @@ use Trackvia\Api;
 use Trackvia\Log;
 
 // Set your API client credentials
-$clientId = '13_2s6wg16cwtk48kcgggo8kcgow44w0k8k4800ssw4oss0coc0g8';
-$clientSecret = '4htbckzh1qm8wo4s88gw44g8gs80g00so0sg0kw8kkoccco8gg';
+$clientId = 'your_client_key';
+$clientSecret = 'your_client_secrect';
 
 // username and password to request an Access Token
-$username = 'api.tester';
-$password = 'co3823se';
+$username = 'testuser';
+$password = 'testpass';
 
 // load the saved token for this user
 function load_saved_token_data()
@@ -20,13 +20,11 @@ function load_saved_token_data()
     // code to load the token from your database
     //===========
     
-    return array(
-        'access_token'  => 'zH_4mT6c71qn8fD5_zIKabURN7jBj0oKvz19OUvVb5I',
-        // 'access_token'  => 'IR5LenHFiNGxn5ogNNMpqb28pwC-PiPLjlO8kwm0OYc',
-        'refresh_token' => 'v5G2ZFOIx3YM0bpggN1MP_WwhVleo4zvpY2A8kEzq30',
-        // 'expires_at'    => '',
-        'expires_at'    => '1344359784'
-    );
+    // return array(
+    //     'access_token'  => 'user_access_token',
+    //     'refresh_token' => 'user_refresh_token',
+    //     'expires_at'    => 'expires_timestamp'
+    // );
 }
 $savedToken = load_saved_token_data();
 
@@ -42,10 +40,6 @@ $tv = new Api(array(
     'username'       => $username,
     'password'       => $password
 ));
-
-// setup the logger for debugging
-$authLog = new Log($tv->getAuthentication());
-$log = new Log($tv);
 
 // attach a listener function for when a new token is generated so you can save it to a database
 $tv->on('new_token', function ($tokenData, $extraParams) {
@@ -71,6 +65,10 @@ if (!empty($savedToken) && isset($savedToken['access_token'])) {
     ));
 
 }
+
+// setup the logger for debugging
+// $authLog = new Log($tv->getAuthentication());
+// $log = new Log($tv);
 
 /*
 
