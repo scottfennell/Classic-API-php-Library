@@ -3,23 +3,23 @@ namespace Trackvia;
 
 class Authentication extends EventDispatcher
 {
-	/**
-	 * Path to the OAuth2 authentication endpoint
-	 */
-	const AUTH_TOKEN = 'oauth/v2/auth';
+    /**
+     * Path to the OAuth2 authentication endpoint
+     */
+    const AUTH_TOKEN = 'oauth/v2/auth';
     
     /**
      * Path to the token endpoint
      */
     const TOKEN_URL = 'oauth/v2/token';
 
-	/**
-	 * Object to handle http requests
-	 * @var TrackviaRequest
-	 */
-	private $request;
+    /**
+     * Object to handle http requests
+     * @var TrackviaRequest
+     */
+    private $request;
 
-	/**
+    /**
      * Client Id passed in by the client app
      * @var string
      */
@@ -37,25 +37,25 @@ class Authentication extends EventDispatcher
      */
     private $userCreds;
 
-	/**
-	 * Array containing any token data returned after user authentication
-	 * @var array
-	 */
-	private $tokenData;
+    /**
+     * Array containing any token data returned after user authentication
+     * @var array
+     */
+    private $tokenData;
 
-	private $isTokenExpired = false;
+    private $isTokenExpired = false;
 
     private $lastError;
 
 
-	/**
-	 * @param TrackviaRequst $request
-	 */
-	public function __construct(Request $request, $params)
-	{
-		$this->request = $request;
+    /**
+     * @param TrackviaRequst $request
+     */
+    public function __construct(Request $request, $params)
+    {
+        $this->request = $request;
 
-		if (!is_array($params)) {
+        if (!is_array($params)) {
             throw new \Exception('You must pass in your client_id and client_secrect');
         }
         if (!isset($params['client_id'])) {
@@ -72,9 +72,9 @@ class Authentication extends EventDispatcher
             // user credentials flow is being used
             $this->setUserCreds($params['username'], $params['password']);
         }
-	}
+    }
 
-	/**
+    /**
      * Set the user credentials to use for authentication
      * @param string $username
      * @param string $password
@@ -115,7 +115,7 @@ class Authentication extends EventDispatcher
      */
     public function getTokenData()
     {
-    	return $this->tokenData;
+        return $this->tokenData;
     }
 
     /**
@@ -168,7 +168,7 @@ class Authentication extends EventDispatcher
      */
     public function clearAccessToken()
     {
-    	if ($this->hasAccessToken()) {
+        if ($this->hasAccessToken()) {
             $this->tokenData['access_token'] = null;
         }
     }
@@ -204,7 +204,7 @@ class Authentication extends EventDispatcher
     {
         $retval = $this->hasAccessToken() && !$this->isAccessTokenExpired();
         $this->trigger('is_token_valid', array('is_valid' => $retval));
-    	return $retval;
+        return $retval;
     }
 
     /**
@@ -236,7 +236,7 @@ class Authentication extends EventDispatcher
         return true;
     }
 
-	/**
+    /**
      * Get an access token from the Trackvia OAuth2 server.
      * 
      * @param  string $username The user's username credential
@@ -326,25 +326,25 @@ class Authentication extends EventDispatcher
      */
     public function authenticate()
     {
-    	$response = true;
+        $response = true;
         
-    	if (!$this->isAccessTokenValid()) {
-	        if (!$this->hasRefreshToken()) {
-	            // no tokens available, so we need to request new ones
-	            
-	            // check for user credentials flow first
-	            if ($this->hasUserCreds()) {
-	                $response = $this->requestTokenWithUserCreds(
-	                    $this->userCreds['username'],
-	                    $this->userCreds['password']
-	                );
-	            }
+        if (!$this->isAccessTokenValid()) {
+            if (!$this->hasRefreshToken()) {
+                // no tokens available, so we need to request new ones
+                
+                // check for user credentials flow first
+                if ($this->hasUserCreds()) {
+                    $response = $this->requestTokenWithUserCreds(
+                        $this->userCreds['username'],
+                        $this->userCreds['password']
+                    );
+                }
 
-	            //TODO add support for redirecting user to auth trackvia endpoint
+                //TODO add support for redirecting user to auth trackvia endpoint
 
-	        } 
-	        elseif ($this->hasRefreshToken()) {
-	            // use the refresh token to get a new access token
+            } 
+            elseif ($this->hasRefreshToken()) {
+                // use the refresh token to get a new access token
                 try {
                     $response = $this->requestTokenWithRefreshToken($this->getRefreshToken());
                 } 
@@ -362,8 +362,8 @@ class Authentication extends EventDispatcher
                     // just throw the original Exception for any other errors
                     throw $e;
                 }
-	        }
-    	}
+            }
+        }
 
         return $response;
     }

@@ -33,7 +33,7 @@ $extraParams = array('extra_params' => 'this can be whatever you want');
 
 
 // Create a TrackviaApi object with your clientId and secret.
-// The client_id and secret are only user when you need to request a new access token.
+// The client_id and secret are only used when you need to request a new access token.
 $tv = new Api(array(
     'client_id'      => $clientId,
     'client_secret'  => $clientSecret,
