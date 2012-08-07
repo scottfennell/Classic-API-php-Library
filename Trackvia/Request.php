@@ -3,126 +3,115 @@ namespace Trackvia;
 
 class Request
 {
-	private $curl;
+    private $curl;
 
-	private $accessToken;
+    /**
+     * The data returned from the last response
+     * @var mixed
+     */
+    private $response;
 
-	private $isTokenExpired = false;
+    private $method = 'GET';
 
-	public function __construct()
-	{
-		$this->curl = curl_init();
-	}
+    private $url;
 
-	public function setReturnType($type)
-	{
-		# code...
-	}
+    private $postData;
 
-	public function request($url, $httpMethod = 'POST', $data = null)
-	{
-		if ( !in_array($httpMethod, array('POST', 'GET', 'PUT', 'DELETE')) ) {
-			throw new Exception('Request type "' . $httpMethod . '" not supported');
-		}
-		$ch = $this->curl;
+    private $headers = array();
 
-		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $httpMethod);
-		if (is_array($data) && count($data) > 0) {
-			// set any post data
-			curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-		}
+    public function __construct()
+    {
+        $this->curl = curl_init();
+    }
 
-		curl_setopt($ch, CURLOPT_URL, $url);
-		curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    public function addHeader($name, $value)
+    {
+        $this->headers[$name] = $value;
+        return $this;
+    }
+
+    public function setContentType($contentType)
+    {
+        return $this->addHeader('Content-Type', $contentType);
+    }
+
+    public function setMethod($method)
+    {
+        $method = strtoupper($method);
+        if ( !in_array($method, array('POST', 'GET', 'PUT', 'DELETE')) ) {
+            throw new \Exception('HTTP request method "' . $method . '" not supported');
+        }
+        $this->method = $method;
+        return $this;
+    }
+
+    public function setData($data)
+    {
+        $this->postData = $data;
+        return $this;
+    }
+
+    public function send($url)
+    {
+        $data = $this->postData;
+
+        // tack data onto the query string for GET requests
+        if ($this->method == 'GET' && is_array($data) && !empty($data)) {
+
+            $queryString = http_build_query($data);
+            if (strpos($url, '?') === false) {
+                $url .= '?'.$queryString;
+            } else {
+                // query string is already part of the url
+                $url .= '&'.$queryString;
+            }
+            $data = array(); //empty the data array
+        }
+
+        $ch = $this->curl;
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $this->method);
+        if (!empty($data)) {
+            // set any post data
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        }
+
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
         curl_setopt($ch, CURLOPT_HEADER, 0);
-		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
 
-		$response = curl_exec($ch);
-		$response = json_decode($response, true);
+        // set any headers
+        if (!empty($this->headers)) {
+            $headers = array();
+            foreach ($this->headers as $name => $value) {
+                $headers[] = "$name: $value";
+            }
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
 
-		if (isset($response['error'])) {
-			$this->parseError($reponse);
-			return false;
-		}
-		return $response;
-	}
+        $this->response = curl_exec($ch);
+        $this->response = json_decode($this->response, true);
 
-	/**
-	 * GET request.
-	 * Additional data will be appended to the URL.
-	 * 
-	 * @param  string $url
-	 * @param  array $data Data to add on to the request
-	 * @return array
-	 */
-	public function get($url, $data)
-	{
-		$url = $url . '?' . http_build_query($data);
-		return $this->request($url, 'GET');
-	}
+        return $this->response;
+    }
 
-	/**
-	 * POST request
-	 * 
-	 * @param  string $url
-	 * @param  aray $data POST fields to send with request
-	 * @return array
-	 */
-	public function post($url, $data)
-	{
-		return $this->request($url, 'POST', $data);
-	}
+    /**
+     * Get the data returned from the last response
+     * @return mixed
+     */
+    public function getResponse()
+    {
+        return $this->response;
+    }
 
-	/**
-	 * PUT request
-	 * 
-	 * @param  string $url
-	 * @param  aray $data Data fields to send with request
-	 * @return array
-	 */
-	public function put($url, $data)
-	{
-		return $this->request($url, 'PUT', $data);
-	}
+    /**
+     * Get the response http code from the last request
+     * @return int
+     */
+    public function getResponseCode()
+    {
+        return (int) curl_getinfo($this->curl, CURLINFO_HTTP_CODE);
+    }
 
-	/**
-	 * DELETE request
-	 * 
-	 * @param  string $url
-	 * @param  aray $data Data fields to send with request
-	 * @return array
-	 */
-	public function delete($url, $data)
-	{
-		return $this->request($url, 'DELETE', $data);
-	}
-
-	private function parseError($data)
-	{
-		switch ($data['error_description']) {
-			case self::ERROR_EXPIRED_TOKEN:
-				$this->isTokenExpired = true;
-				// return here so we don't throw this error
-				// so we can use the refresh token
-				return;
-		}
-
-		// throw an exception with the returned error message
-		throw new Exception($data['error_description']);
-	}
-
-	/**
-	 * Repeat the last
-	 * @return [type] [description]
-	 */
-	public function repeatRequest()
-	{
-		
-	}
-
-	public function isTokenExpired()
-	{
-		return $this->isTokenExpired;
-	}
 }

@@ -6,9 +6,10 @@ namespace Trackvia;
  * 
  * Bind functions to an object by event name.
  * Then trigger events from that object which then executes binded functions.
+ * 
  * @author  otake <chris.oake@trackvia.com>
  */
-abstract class EventDispatcher 
+abstract class EventDispatcher
 {
     /**
      * Array to store callbacks for different event names
@@ -21,18 +22,18 @@ abstract class EventDispatcher
      * @param  string $event
      * @param  string|array $callback A callback function name that can be passed into call_user_func()
      */
-    public function on($event, $callback)
+    public function on($event, $callback, $extraParams = array())
     {
+        if (!is_callable($callback)) {
+            throw new \Exception("Callback argument is not callable. Check you have the right function name.");
+        }
+
         if (!isset($this->events[$event])) {
             // initialize an array for this event name
             $this->events[$event] = array();
         }
 
-        if (!is_callable($callback)) {
-            throw new \Exception("Callback argument is not callable. Check you have the right function name.");
-        }
-
-        $this->events[$event][] = $callback;
+        $this->events[$event][] = array($callback, $extraParams);
     }
 
     /**
@@ -45,8 +46,8 @@ abstract class EventDispatcher
     {
         if (isset($this->events[$event])) {
             // loop through each callback for this event
-            foreach ($this->events[$event] as $callback) {
-                call_user_func($callback, $data);
+            foreach ($this->events[$event] as $callbackData) {
+                call_user_func($callbackData[0], $data, $callbackData[1]);
             }
         }
     }

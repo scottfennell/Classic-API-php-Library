@@ -1,21 +1,20 @@
 <?php
 namespace Trackvia;
 
+require 'EventDispatcher.php';
 require 'Request.php';
 require 'Authentication.php';
 
-use Trackvia\Request;
-use Trackvia\Authentication;
-
-class Api
+class Api extends EventDispatcher
 {
-    const BASE_URL = 'https://secure.trackviadev.com/';
+    const BASE_URL = 'https://api.trackviadev.com/';
 
     // URLs for API data endpoints
-    const APPS_URL = 'apps/';
-    const TABLES_URL = 'tables/';
-    const VIEWS_URL = 'views/';
-    const RECORDS_URL = 'records/';
+    const DASHBOARDS_URL = 'dashboards';
+    const APPS_URL       = 'apps';
+    const TABLES_URL     = 'tables';
+    const VIEWS_URL      = 'views';
+    const RECORDS_URL    = 'records';
 
     /**
      * Error message received back from api endpoint if access token is expired
@@ -39,18 +38,22 @@ class Api
      */
     private $auth;
 
-    private $lastRequest;
-
     /**
-     * Array of events to assign callbacks to.
-     * @var array
+     * Whether or not the current access token is expired.
+     * This gets flagged true when an api request is made and 
+     * the response comes back as an error indicating expired token.
+     * 
+     * @var boolean
      */
-    private $events = array();
+    private $isTokenExpired = false;
 
     public function __construct($params)
     {
         $this->request = new Request();
         $this->auth    = new Authentication($this->request, $params);
+
+        // add an event listener for a new token on the authentication object
+        $this->auth->on('new_access_token', array($this, 'onNewAccessToken'));
     }
 
     /**
@@ -63,6 +66,15 @@ class Api
     }
 
     /**
+     * Method the handle the new_token even trigger by the authentication class
+     * Bubble up the event with token data for the client.
+     */
+    public function onNewAccessToken($data)
+    {
+        $this->trigger('new_token', $data);
+    }
+
+    /**
      * Set the tokend ata for authentication
      * @param [type] $tokenData [description]
      */
@@ -71,108 +83,138 @@ class Api
         $this->auth->setTokenData($tokenData);
     }
 
-    /**
-     * Attach an event listener.
-     * @param  string $event
-     * @param  string|array $callback A callback function name that can be passed into call_user_func()
-     */
-    public function on($event, $callback)
+    public function getAuthentication()
     {
-        // if (!array_key_exists($event, $this->events)) {
-        //     throw new Exception("Cannot bind to event \"$event\". This event is not supported.");
-        // }
-        // 
-        if (!isset($this->events[$event])) {
-            // initialize an array for this event name
-            $this->events[$event] = array();
-        }
-
-        if (!is_callable($callback)) {
-            throw new Exception('Callback cannot is not callable. Check you have the right function name.');
-        }
-
-        $this->events[$event][] = $callback;
+        return $this->auth;
     }
 
-    /**
-     * Trigger a binded event.
-     * This will call all binded callback functions for a given event.
-     * @param string $event The event name
-     */
-    public function trigger($event)
+    public function getRequest()
     {
-        if (!array_key_exists($event, $this->events)) {
-            throw new Exception("Cannot trigger event \"$event\". This event is not supported.");
-        }
-
-        // set different args based on event name
-        switch ($event) {
-            case 'new_token':
-                $data = array(
-                    'access_token'  => $this->accessToken,
-                    'refresh_token' => $this->refresh,
-                    'expires_at'    => $this->expiresAt
-                );
-                break;
-        }
-        // loop through each callback for this event
-        foreach ($this->events[$event] as $callback) {
-            call_user_func($callback, $data);
-        }
+        return $this->request;
     }
 
     /**
      * Check if the response failed and if the token is expired.
-     * If it is expired, use the refresh token to get a new one
+     * 
+     * Any errors returned from the API server will be thrown as an Exception.
+     * 
      * @param  array $response 
      * @return boolean
      */
-    private function checkResponse($response)
+    private function checkResponse()
     {
+        $response = $this->request->getResponse();
         if (is_array($response) && isset($response['error_description'])) {
-            if ($response['error_description'] == self::EXPIRED_ACCESS_TOKEN) {
-
+            switch ($response['error_description']) {
+                case self::EXPIRED_ACCESS_TOKEN:
+                    $this->isTokenExpired = true;
+                    // return here so we don't throw this error
+                    // so we can use the refresh token
+                    return false;
             }
+
+            // throw an \Exception with the returned error message
+            throw new \Exception('API Error :: ' . $response['error_description']);
         }
+
+        return true;
     }
 
-    private function api($url, $httpMethod = 'GET')
+    /**
+     * Make an api request.
+     * 
+     * @param  string $url
+     * @param  string $httpMethod The http method to use with this request
+     * @param  array $data Optional array of data to send with request
+     * @param  string $contentType
+     * @return array The json parsed response from the server
+     */
+    private function api($url, $httpMethod = 'GET', $data = array(), $contentType = null)
     {
-        // check for access token
-        // if (!$this->auth->hasAccessToken() || $this->auth->isAccessTokenExpired()) {
-            
-        // }
+        // trigger an event
+        $this->trigger('api_request_init', array('url' => $url));
+
         $this->authenticate();
 
         $accessToken = $this->auth->getAccessToken();
-
         if (!$accessToken) {
             // should have a token at this point
             // if not, something went wrong
-            throw new Exception('Cannot make an api request without an access token');
+            throw new \Exception('Cannot make an api request without an access token');
         }
 
         // save this request in case we need to use the refresh token
-        $this->lastRequest = array(
-            'url'  => $url
-            // 'data' => $data
+        $lastRequest = array(
+            'url'    => $url,
+            'method' => $httpMethod,
+            'data'   => $data
         );
 
-        // make the request with current access token
-        $response = $this->request->request($url, $httpMethod, array(
-            'access_token' => $accessToken
-        ));
+        // add the access token onto the url
+        $url = $url . '?access_token='.$accessToken;
 
-        $this->trigger('api_request', array('url' => $url));
+        $this->trigger('api_request_send', array('url' => $url, 'http_method' => $httpMethod));
+        
+        $this->request
+            ->setMethod($httpMethod)
+            ->setData($data);
 
-        $this->checkResponse($response);
-
-        if (!$response && $this->request->isTokenExpired()) {
-            //use refresh token to request new access token
-            if ($this->authenticate()) {
-                // redo initial api request
-            }
+        if ($contentType) {
+            $this->request->setContentType("application/$contentType");
         }
+        // now send the request
+        $this->request->send($url);
+
+        $this->trigger('api_request_complete', array('url' => $url, 'response' => $this->request->getResponse()));
+
+        // check the response for any errors
+        $vaild = $this->checkResponse();
+
+        if (!$vaild && $this->isTokenExpired) {
+            // blow out the current token so a new one gets requested
+            $this->auth->clearAccessToken();
+
+            // redo the last api request
+            $this->api(
+                $lastRequest['url'],
+                $lastRequest['method'],
+                $lastRequest['data']
+            );
+        }
+
+        return $this->request->getResponse();
+    }
+
+    /**
+     * Get a list of all dashboards, or a single dashboard.
+     * 
+     * Optional id parameter lets you specify one dashboard if you want.
+     * Leave is empty to get all dashboards back.
+     * 
+     * @param  int $id
+     * @return array Array of dashboard data returned from the api
+     */
+    public function getDashboards($id = null)
+    {
+        if ($id != null && !is_int($id)) {
+            throw new \Exception('Dashboard ID must be an integer');
+        }
+
+        // build the url
+        $url = self::BASE_URL . self::DASHBOARDS_URL . ($id ? '/'.$id : '');
+            
+        return $this->api($url, 'GET');
+    }
+
+    /**
+     * Get data for a single dashboard.
+     * 
+     * @param  int $id
+     * @return array
+     */
+    public function getDashboard($id)
+    {
+        return $this->getDashboards($id);
     }
 
     /**
@@ -181,17 +223,17 @@ class Api
      * Optional app_id parameter lets you specify one app if you want.
      * Leave is empty to get all apps back.
      * 
-     * @param  integer $appId
+     * @param  int $appId
      * @return array   Array of app data returned from the api
      */
     public function getApps($appId = null)
     {
         if ($appId != null && !is_int($appId)) {
-            throw new Exception('App ID must be an integer');
+            throw new \Exception('App ID must be an integer');
         }
 
         // build the url
-        $url = self::BASE_URL . self::APPS_URL . $appId;
+        $url = self::BASE_URL . self::APPS_URL . ($appId ? '/'.$appId : '');
             
         return $this->api($url, 'GET');
     }
@@ -200,29 +242,29 @@ class Api
      * Get data for a single app by app_id.
      * This will provide you with all the tables available for this app.
      * 
-     * @param  integer $appId
-     * @return array   Array of app data returned fromt the api
+     * @param  int $appId
+     * @return array Array of app data returned fromt the api
      */
     public function getApp($appId)
     {
-        $this->getApps($appId);
+        return $this->getApps($appId);
     }
 
     /**
      * Get table data back for a table_id.
      * This will provide you all the views available for this table.
      * 
-     * @param  integer $tableId
-     * @return array   Array of table data returned from the api
+     * @param  int $tableId
+     * @return array Array of table data returned from the api
      */
     public function getTable($tableId)
     {
         if (!is_int($tableId)) {
-            throw new Exception('Table ID must be an integer');
+            throw new \Exception('Table ID must be an integer');
         }
 
         // build the url
-        $url = self::BASE_URL . self::TABLES_URL . $tableId;
+        $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId;
             
         return $this->api($url, 'GET');
     }
@@ -231,73 +273,128 @@ class Api
      * Get view data back for a view_id.
      * This will provide you with all the records under this view.
      * 
-     * @param  integer $viewId
-     * @return array   Array of view data returned from the api
+     * @param  int $viewId
+     * @return array Array of view data returned from the api
      */
     public function getView($viewId)
     {
         if (!is_int($viewId)) {
-            throw new Exception('View ID must be an integer');
+            throw new \Exception('View ID must be an integer');
         }
 
         // build the url
-        $url = self::BASE_URL . self::VIEWS_URL . $viewId;
-            
-        return $this->api($url);
+        $url = self::BASE_URL . self::VIEWS_URL .'/'. $viewId;
+        
+        return $this->api($url, 'GET');
     }
 
     /**
      * Get Record data back for a record_id.
      * This will provide you with all the column data for a record.
      * 
-     * @param  integer $recordId
-     * @return array   Array of Record data returned from the api
+     * @param  int $id
+     * @return array Array of Record data returned from the api
      */
-    public function getRecord($recordId)
+    public function getRecord($id)
     {
-        if (!is_int($recordId)) {
-            throw new Exception('Record ID must be an integer');
+        if (!is_int($id)) {
+            throw new \Exception('Record ID must be an integer');
         }
 
         // build the url
-        $url = self::BASE_URL . self::RECORDS_URL . $recordId;
+        $url = self::BASE_URL . self::RECORDS_URL .'/'. $id;
             
-        return $this->api($url);
+        return $this->api($url, 'GET');
     }
 
-    public function addRecord($data)
+    /**
+     * Add a new record to a table
+     * @param int $id
+     * @param array $data
+     * @return array
+     */
+    public function addRecord($id, $data)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL;
+
+        $data = array(
+            array(
+                'table_id' => $id,
+                'data'     => $data
+        ));
+        return $this->api($url, 'POST', json_encode($data), 'json');
     }
 
+    /**
+     * Add more than one record at once. Batch inserts.
+     * 
+     * @param array $data
+     * @return array
+     */
     public function addRecords($data)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL;
+        return $this->api($url, 'POST', json_encode($data), 'json');
     }
 
-    public function updateRecord($id)
+    /**
+     * Update a single record.
+     * 
+     * @param  int $id
+     * @param  array $data
+     * @return array
+     */
+    public function updateRecord($id, $data)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL .'/'. $id;
+        return $this->api($url, 'PUT', json_encode($data), 'json');
     }
 
+    /**
+     * Update multiple records.
+     * 
+     * @param  array $data
+     * @return array
+     */
     public function updateRecords($data)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL;
+        return $this->api($url, 'PUT', json_encode($data), 'json');
     }
 
+    /**
+     * Delete a record by id.
+     * 
+     * @param  int $id
+     */
     public function deleteRecord($id)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL .'/'. $id;
+        return $this->api($url, 'DELETE');
     }
 
+    /**
+     * Delete multiple records at once. Batch delete.
+     * 
+     * @param  array $data
+     */
     public function deleteRecords($data)
     {
-        # code...
+        $url = self::BASE_URL . self::RECORDS_URL;
+        return $this->api($url, 'DELETE', json_encode($data), 'json');
     }
 
+    /**
+     * Search for records on a table.
+     * 
+     * @param  int $tableId
+     * @param  string $term
+     * @return array
+     */
     public function search($tableId, $term)
     {
-        # code...
+        $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. $term;
+        return $this->api($url, 'GET');
     }
 
 }

@@ -1,7 +1,7 @@
 <?php 
 namespace Trackvia;
 
-class Authentication
+class Authentication extends EventDispatcher
 {
 	/**
 	 * Path to the OAuth2 authentication endpoint
@@ -45,6 +45,8 @@ class Authentication
 
 	private $isTokenExpired = false;
 
+    private $lastError;
+
 
 	/**
 	 * @param TrackviaRequst $request
@@ -54,13 +56,13 @@ class Authentication
 		$this->request = $request;
 
 		if (!is_array($params)) {
-            throw new Exception('You must pass in your client_id and client_secrect');
+            throw new \Exception('You must pass in your client_id and client_secrect');
         }
         if (!isset($params['client_id'])) {
-            throw new Exception('No client_id provided. This is required.');
+            throw new \Exception('No client_id provided. This is required.');
         }
         if (!isset($params['client_secret'])) {
-            throw new Exception('No client_secrect provided. This is required.');
+            throw new \Exception('No client_secrect provided. This is required.');
         }
 
         $this->clientId     = $params['client_id'];
@@ -74,8 +76,8 @@ class Authentication
 
 	/**
      * Set the user credentials to use for authentication
-     * @param [type] $username [description]
-     * @param [type] $password [description]
+     * @param string $username
+     * @param string $password
      */
     public function setUserCreds($username, $password)
     {
@@ -122,7 +124,7 @@ class Authentication
      */
     public function hasAccessToken()
     {
-        return !empty($this->tokenData) && isset($this->tokenData['access_token']);
+        return !empty($this->tokenData) && isset($this->tokenData['access_token']) && $this->tokenData['access_token'] != '';
     }
 
     /**
@@ -140,7 +142,7 @@ class Authentication
      */
     public function hasRefreshToken()
     {
-        return !empty($this->tokenData) && isset($this->tokenData['refresh_token']);
+        return !empty($this->tokenData) && isset($this->tokenData['refresh_token']) && $this->tokenData['refresh_token'] != '';
     }
 
     /**
@@ -149,36 +151,89 @@ class Authentication
      */
     public function getRefreshToken()
     {
-        return $this->tokenData['refresh_token'];
+        $token = $this->tokenData['refresh_token'];
+        $this->trigger('has_refresh_token', array('refresh_token' => $token));
+        return $token;
+    }
+
+    public function getExpiresAt()
+    {
+        return $this->tokenData['expires_at'];
     }
 
     /**
-     * Clear the current token data
+     * Clear the current access token by setting it to null.
+     * Clearing the access token before calling the "authenticate" method
+     * will force it to get a new access token.
      */
-    private function clearTokenData()
+    public function clearAccessToken()
     {
-    	$this->tokenData = null;
+    	if ($this->hasAccessToken()) {
+            $this->tokenData['access_token'] = null;
+        }
+    }
+
+    /**
+     * Clear access and refresh tokens so that authentication will request a new token
+     */
+    public function clearAllTokens()
+    {
+        $this->tokenData = array();
     }
 
     /**
      * Check if the current token expired.
-     * We use the expired_at time that should be set by the client.
+     * We check the expired_at time that should be set by the client.
      * @return boolean
      */
     private function isAccessTokenExpired()
     {
-        return $this->tokenData['expires_at'] > time();
+        if (!isset($this->tokenData['expires_at']) || $this->tokenData['expires_at'] <= time()) {
+            return true;
+        }
+        return false;
     }
 
     /**
-     * Check if there is an access token and if it is expired base on the expired_at property.
+     * Check if there is an access token and if it is expired based on the expired_at property.
      * Not a valid token if either condition fails.
      * 
      * @return boolean
      */
     private function isAccessTokenValid()
     {
-    	return $this->hasAccessToken() && !$this->isAccessTokenExpired();
+        $retval = $this->hasAccessToken() && !$this->isAccessTokenExpired();
+        $this->trigger('is_token_valid', array('is_valid' => $retval));
+    	return $retval;
+    }
+
+    /**
+     * Check if the response failed and if the token is expired.
+     * 
+     * Any errors returned from the API server will be thrown as an Exception.
+     * 
+     * @param  array $response 
+     * @return boolean
+     */
+    private function checkResponse()
+    {
+        $response = $this->request->getResponse();
+        $httpCode = $this->request->getResponseCode();
+
+        if (!$response) {
+            throw new \Exception('Requesting Access Token failed');
+
+            return false;
+        }
+
+        if ($httpCode == 400 && isset($response['error_description'])) {
+            // throw an Exception with the returned error message
+            throw new \Exception($response['error_description']);
+
+            return false;
+        }
+
+        return true;
     }
 
 	/**
@@ -186,52 +241,81 @@ class Authentication
      * 
      * @param  string $username The user's username credential
      * @param  string $password The user's password credential
-     * @return string The access token for the user
+     * @return array|boolean Array of token data returned from the auth server or false on error
      */
     public function requestTokenWithUserCreds($username, $password)
     {
-        $url = $this->getTokenUrl();
-
-        $response = $this->request->post($url, array(
-            'client_id'     => $this->clientId,
-            'client_secret' => $this->clientSecret,
-            'grant_type'    => 'password',
-            'username'      => $username,
-            'password'      => $password
+        $this->trigger('request_token_with_user_creds', array(
+            'username' => $username,
+            'password' => $password
         ));
 
-        if (!$response) {
-            throw new Exception('Requesting Access Token failed');
+        $url = $this->getTokenUrl();
+
+        $this->request
+            ->setMethod('post')
+            ->setContentType('application/x-www-form-urlencoded')
+            ->setData(array(
+                'client_id'     => $this->clientId,
+                'client_secret' => $this->clientSecret,
+                'grant_type'    => 'password',
+                'username'      => $username,
+                'password'      => $password
+            ))
+            ->send($url);
+
+        $vaild = $this->checkResponse();
+
+        if ($vaild) {
+            $this->tokenData = $this->request->getResponse();
+            $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
+
+            $this->trigger('new_access_token', $this->tokenData);
+
+            return $this->tokenData;
         }
 
-        $this->tokenData = $response;
-        $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
-
-        return $this->tokenData;
+        return false;
     }
 
     /**
      * Get a new access token with a refresh token.
      * 
      * @param  string $refreshToken 
-     * @return array Array of token data returned from the auth server
+     * @return array|boolean Array of token data returned from the auth server or false on error
      */
     public function requestTokenWithRefreshToken($refreshToken)
     {
-        // use the refresh token to get a new access token
-        $url = $this->getTokenUrl();
-
-        $response = $this->request->post($url, array(
-            'client_id'     => $this->clientId,
-            'client_secret' => $this->clientSecret,
-            'grant_type'    => 'refresh_token',
+        $this->trigger('request_token_with_refresh_token', array(
             'refresh_token' => $refreshToken
         ));
 
-        $this->tokenData = $response;
-        $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
+        // use the refresh token to get a new access token
+        $url = $this->getTokenUrl();
 
-        return $this->tokenData;
+        $this->request
+            ->setMethod('post')
+            ->setContentType('application/x-www-form-urlencoded')
+            ->setData(array(
+                'client_id'     => $this->clientId,
+                'client_secret' => $this->clientSecret,
+                'grant_type'    => 'refresh_token',
+                'refresh_token' => $refreshToken
+            ))
+            ->send($url);
+
+        $vaild = $this->checkResponse();
+
+        if ($vaild) {
+            $this->tokenData = $this->request->getResponse();
+            $this->tokenData['expires_at'] = $this->tokenData['expires_in'] + time();
+
+            $this->trigger('new_access_token', $this->tokenData);
+
+            return $this->tokenData;
+        }
+
+        return false;
     }
 
     /**
@@ -243,7 +327,7 @@ class Authentication
     public function authenticate()
     {
     	$response = true;
-
+        
     	if (!$this->isAccessTokenValid()) {
 	        if (!$this->hasRefreshToken()) {
 	            // no tokens available, so we need to request new ones
@@ -261,25 +345,36 @@ class Authentication
 	        } 
 	        elseif ($this->hasRefreshToken()) {
 	            // use the refresh token to get a new access token
-	            $response = $this->requestTokenWithRefreshToken($this->getRefreshToken());
+                try {
+                    $response = $this->requestTokenWithRefreshToken($this->getRefreshToken());
+                } 
+                catch (\Exception $e) {
+                    print_r($e->getmessage());
+                    switch ($e->getMessage()) {
+                        case Api::EXPIRED_REFRESH_TOKEN:
+                            $this->trigger('refresh_token_expired');
+                            // Refresh token is expired so fallback to another method
+                            $this->clearAllTokens();
+                            $this->authenticate();
+                            break;
+                    }
 
-	            //TODO if the refresh token is expired we need to automatically request a new access token
+                    // just throw the original Exception for any other errors
+                    throw $e;
+                }
 	        }
     	}
-    	
-        //TODO check for response errors here
-        
 
         return $response;
     }
 
     private function getAuthUrl()
     {
-        return TrackviaApi::BASE_URL . self::AUTH_URL;
+        return Api::BASE_URL . self::AUTH_URL;
     }
 
     private function getTokenUrl()
     {
-        return TrackviaApi::BASE_URL . self::TOKEN_URL;
+        return Api::BASE_URL . self::TOKEN_URL;
     }
 }
