@@ -88,13 +88,27 @@ class AuthenticationTest extends PHPUnit_Framework_Testcase
         $this->assertTrue($this->auth->authenticate());
     }
 
+    public function testBadCredentialsException()
+    {
+        $auth =  $this->auth;
+        $this->auth->clearAllTokens();
+
+        $this->auth->setUserCreds('api.tester', 'fake_password');
+
+        try {
+            $auth->authenticate();
+        } catch(\Exception $e) {
+            $this->assertEquals($e->getMessage(), 'invalid_grant');
+        }
+    }
+
     public function testAuthenticateWithUserCreds()
     {
         $auth =  $this->auth;
         $this->auth->clearAllTokens();
 
         // auth should fail with no token or user creds
-        $this->assertFalse($auth->authenticate()); 
+        $this->assertFalse($auth->authenticate());
         $this->assertEmpty($auth->getTokenData());
 
         $this->auth->setUserCreds('api.tester', 'co3823se');
@@ -104,11 +118,6 @@ class AuthenticationTest extends PHPUnit_Framework_Testcase
         $this->assertNotEmpty($auth->getTokenData());
 
         return $response;
-    }
-
-    public function testAuthenticateWithBadUserCreds($value='')
-    {
-        # code...
     }
 
     /**
