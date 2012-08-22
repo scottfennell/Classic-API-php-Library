@@ -71,6 +71,18 @@ $tv->on('new_token', function ($tokenData, $extraParams) {
 $authLog = new Log($tv->getAuthentication());
 $log = new Log($tv);
 
+
+//*********************
+// Get a list of dashboards
+//*********************
+$dashboards = $tv->getDashboards();
+
+//*********************
+// Get a single dashboard by dashboard_id
+//*********************
+$dashboards = $tv->getDashboard(2);
+
+
 //*********************
 // Get a list of all apps accessible by the user
 //*********************
@@ -87,6 +99,17 @@ $app = $tv->getApp(22087);
 // Get data for a table
 //*********************
 $table = $tv->getTable(62995);
+
+
+//*********************
+// Get a list of forms for a table
+//*********************
+$forms = $tv->getForms(62995);
+
+//*********************
+// Get data for a specific form
+//*********************
+$form = $tv->getForm(3);
 
 
 //*********************

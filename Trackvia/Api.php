@@ -9,8 +9,9 @@ class Api extends EventDispatcher
 {
     const BASE_URL = 'https://api.trackviadev.com/';
 
-    // URLs for API data endpoints
+    // URLs for API endpoints
     const DASHBOARDS_URL = 'dashboards';
+    const FORMS_URL      = 'forms';
     const APPS_URL       = 'apps';
     const TABLES_URL     = 'tables';
     const VIEWS_URL      = 'views';
@@ -201,10 +202,6 @@ class Api extends EventDispatcher
      */
     public function getDashboards($id = null)
     {
-        if ($id != null && !is_int($id)) {
-            throw new \Exception('Dashboard ID must be an integer');
-        }
-
         // build the url
         $url = self::BASE_URL . self::DASHBOARDS_URL . ($id ? '/'.$id : '');
             
@@ -233,10 +230,6 @@ class Api extends EventDispatcher
      */
     public function getApps($appId = null)
     {
-        if ($appId != null && !is_int($appId)) {
-            throw new \Exception('App ID must be an integer');
-        }
-
         // build the url
         $url = self::BASE_URL . self::APPS_URL . ($appId ? '/'.$appId : '');
             
@@ -264,10 +257,6 @@ class Api extends EventDispatcher
      */
     public function getTable($tableId)
     {
-        if (!is_int($tableId)) {
-            throw new \Exception('Table ID must be an integer');
-        }
-
         // build the url
         $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId;
             
@@ -283,10 +272,6 @@ class Api extends EventDispatcher
      */
     public function getView($viewId)
     {
-        if (!is_int($viewId)) {
-            throw new \Exception('View ID must be an integer');
-        }
-
         // build the url
         $url = self::BASE_URL . self::VIEWS_URL .'/'. $viewId;
         
@@ -302,10 +287,6 @@ class Api extends EventDispatcher
      */
     public function getRecord($id)
     {
-        if (!is_int($id)) {
-            throw new \Exception('Record ID must be an integer');
-        }
-
         // build the url
         $url = self::BASE_URL . self::RECORDS_URL .'/'. $id;
             
@@ -387,6 +368,30 @@ class Api extends EventDispatcher
     {
         $url = self::BASE_URL . self::RECORDS_URL;
         return $this->api($url, 'DELETE', json_encode($data), 'json');
+    }
+
+    /**
+     * Get the forms for a table.
+     * @param  int $tableId  The id of the table
+     * @return array
+     */
+    public function getForms($tableId)
+    {
+        $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId .'/'. self::FORMS_URL;
+            
+        return $this->api($url, 'GET');
+    }
+
+    /**
+     * Get data for a specific form
+     * @param  int $formId  The id of the form
+     * @return array
+     */
+    public function getForm($formId)
+    {
+        $url = self::BASE_URL . self::FORMS_URL .'/'. $formId;
+            
+        return $this->api($url, 'GET');
     }
 
     /**
