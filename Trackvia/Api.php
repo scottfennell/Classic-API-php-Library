@@ -16,6 +16,7 @@ class Api extends EventDispatcher
     const TABLES_URL     = 'tables';
     const VIEWS_URL      = 'views';
     const RECORDS_URL    = 'records';
+    const SEARCH_URL    = 'search';
 
     /**
      * Error message received back from api endpoint if access token is expired
@@ -263,6 +264,12 @@ class Api extends EventDispatcher
         return $this->api($url, 'GET');
     }
 
+    public function getTableForeignKeyValues($tableId, $fkId)
+    {
+        $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId . '/foreign_keys/' . $fkId;
+        return $this->api($url, 'GET');
+    }
+
     /**
      * Get view data back for a view_id.
      * This will provide you with all the records under this view.
@@ -296,30 +303,33 @@ class Api extends EventDispatcher
     /**
      * Add a new record to a table
      * @param int $id
-     * @param array $data
+     * @param array $record
      * @return array
      */
-    public function addRecord($id, $data)
+    public function addRecord($id, $record)
     {
         $url = self::BASE_URL . self::RECORDS_URL;
-
         $data = array(
-            array(
-                'table_id' => $id,
-                'data'     => $data
-        ));
+            'table_id' => $id,
+            'records'  => array($record)
+        );
         return $this->api($url, 'POST', json_encode($data), 'json');
     }
 
     /**
-     * Add more than one record at once. Batch inserts.
+     * Add more than one record at once to a table. Batch inserts.
      * 
-     * @param array $data
+     * @param  int   $tableId
+     * @param  array $records
      * @return array
      */
-    public function addRecords($data)
+    public function addRecords($tableId, $records)
     {
         $url = self::BASE_URL . self::RECORDS_URL;
+        $data = array(
+            'table_id' => $tableId,
+            'records'  => $records
+        );
         return $this->api($url, 'POST', json_encode($data), 'json');
     }
 
@@ -339,12 +349,17 @@ class Api extends EventDispatcher
     /**
      * Update multiple records.
      * 
-     * @param  array $data
+     * @param  int $tableId
+     * @param  array $records
      * @return array
      */
-    public function updateRecords($data)
+    public function updateRecords($tableId, $records)
     {
         $url = self::BASE_URL . self::RECORDS_URL;
+        $data = array(
+            'table_id' => $tableId,
+            'records'  => $records
+        );
         return $this->api($url, 'PUT', json_encode($data), 'json');
     }
 
@@ -362,11 +377,16 @@ class Api extends EventDispatcher
     /**
      * Delete multiple records at once. Batch delete.
      * 
-     * @param  array $data
+     * @param  int $tableId
+     * @param  array $records
      */
-    public function deleteRecords($data)
+    public function deleteRecords($tableId, $records)
     {
         $url = self::BASE_URL . self::RECORDS_URL;
+        $data = array(
+            'table_id' => $tableId,
+            'records'  => $records
+        );
         return $this->api($url, 'DELETE', json_encode($data), 'json');
     }
 
@@ -403,7 +423,7 @@ class Api extends EventDispatcher
      */
     public function search($tableId, $term)
     {
-        $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. $term;
+        $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. urlencode($term);
         return $this->api($url, 'GET');
     }
 

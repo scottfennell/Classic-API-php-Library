@@ -156,35 +156,31 @@ Any errors returned from the API server will be thrown as PHP exceptions.
     //**********************
     $tableId = 62994;
     $records = array();
+    // 1st record
     $records[] = array(
-        'table_id' => $tableId, 
-        'data' => array(
-            'Times Visited' => 1,
-            'City'          => 'Denver',
-            'State'         => 'CO',
-            'Restaurant'    => 'Fake Restaurant 2'
-            'Address'       => '1555 Blake Street',
-            'Phone Number'  => '720.524.4345',
-            'Cuisine'       => 'Burgers',
-            'Notes'         => 'Order by phone. No delivery.',
-            'Zip'           => '80202'
-        )
+        'Times Visited' => 1,
+        'City'          => 'Denver',
+        'State'         => 'CO',
+        'Restaurant'    => 'Fake Restaurant 2',
+        'Address'       => '1555 Blake Street',
+        'Phone Number'  => '720.524.4345',
+        'Cuisine'       => 'Burgers',
+        'Notes'         => 'Order by phone. No delivery.',
+        'Zip'           => '80202'
     );
-    $records[] = array(
-        'table_id' => $tableId, 
-        'data' => array(
-            'Times Visited' => 3,
-            'City'          => 'Denver',
-            'State'         => 'CO',
-            'Restaurant'    => 'Fake Restaurant 3'
-            'Address'       => '1555 Blake Street',
-            'Phone Number'  => '720.524.4345',
-            'Cuisine'       => 'Burgers',
-            'Notes'         => 'Order by phone. No delivery.',
-            'Zip'           => '80202'
-        )
+    // 2nd record
+    $records[] = array( 
+        'Times Visited' => 3,
+        'City'          => 'Denver',
+        'State'         => 'CO',
+        'Restaurant'    => 'Fake Restaurant 3',
+        'Address'       => '1555 Blake Street',
+        'Phone Number'  => '720.524.4345',
+        'Cuisine'       => 'Burgers',
+        'Notes'         => 'Order by phone. No delivery.',
+        'Zip'           => '80202'
     );
-    $tv->addRecords($records);
+    $tv->addRecords($tableId, $records);
 
 
     //************************
@@ -202,24 +198,25 @@ Any errors returned from the API server will be thrown as PHP exceptions.
     // Update multiple records
     // (batch updates)
     //************************
+    $tableId = 62994;
     $records = array();
     // 1st record
     $records[] = array(
-        'id'   => 105973376, // record id
-        'data' => array(
+        'id'   => 105976918, // record id
+        'fields' => array(
             'Times Visited' => 12,
             'Restaurant'    => 'Fake Restaurant Updated2!!'
         )
     );
     // 2nd record
     $records[] = array(
-        'id'   => 105973377, // record id
-        'data' => array(
+        'id'   => 105976919, // record id
+        'fields' => array(
             'Times Visited' => 13,
             'Restaurant'    => 'Fake Restaurant Updated3!!'
         )
     );
-    $tv->updateRecords($records);
+    $tv->updateRecords($tableId, $records);
 
 
     //************************
@@ -232,4 +229,5 @@ Any errors returned from the API server will be thrown as PHP exceptions.
     // Delete a multiple records
     // (batch delete)
     //************************
-    $tv->deleteRecords(array(105973376, 105973377));
+    $tableId = 62994;
+    $tv->deleteRecords($tableId, array(105976918, 105976919));
