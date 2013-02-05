@@ -24,7 +24,10 @@ class Log
             'has_refresh_token',
             'request_token_with_user_creds',
             'request_token_with_refresh_token',
-            'refresh_token_expired'
+            'refresh_token_expired',
+            'no_authentication_tokens',
+            'authenticate_with_user_creds',
+            'no_authentication'
         ));
     }
 
@@ -68,6 +71,10 @@ class Log
         $url = $data['url'];
         $method = $data['http_method'];
         $this->logInfo("Sending $method request to url \"$url\"");
+        
+        if (isset($data['data'])) {
+            $this->logInfo("Sending request body - " . $data['data']);
+        }
     }
 
     public function on_api_request_complete($data)
@@ -106,5 +113,20 @@ class Log
     public function on_refresh_token_expired()
     {
         $this->logInfo("Refresh token is expired");
+    }
+
+    public function on_no_authentication_tokens()
+    {
+        $this->logInfo("No authentication tokens available");
+    }
+
+    public function on_authenticate_with_user_creds()
+    {
+        $this->logInfo("Authenticating with user credentials");
+    }
+
+    public function on_no_authentication()
+    {
+        $this->logInfo("No way to authenticate");
     }
 }

@@ -340,13 +340,17 @@ class Authentication extends EventDispatcher
         } else {
             if (!$this->hasRefreshToken()) {
                 // no tokens available, so we need to request new ones
+                $this->trigger('no_authentication_tokens');
                 
                 // check for user credentials flow first
                 if ($this->hasUserCreds()) {
+                    $this->trigger('authenticate_with_user_creds');
                     $response = $this->requestTokenWithUserCreds(
                         $this->userCreds['username'],
                         $this->userCreds['password']
                     );
+                } else {
+                    $this->trigger('no_authentication');
                 }
 
                 //TODO add support for redirecting user to auth trackvia endpoint

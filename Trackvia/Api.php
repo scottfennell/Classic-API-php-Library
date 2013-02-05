@@ -16,7 +16,7 @@ class Api extends EventDispatcher
     const TABLES_URL     = 'tables';
     const VIEWS_URL      = 'views';
     const RECORDS_URL    = 'records';
-    const SEARCH_URL    = 'search';
+    const SEARCH_URL     = 'search';
 
     /**
      * Error message received back from api endpoint if access token is expired
@@ -68,7 +68,7 @@ class Api extends EventDispatcher
     }
 
     /**
-     * Method the handle the new_token even trigger by the authentication class
+     * Method to handle the new_token even trigger by the authentication class
      * Bubble up the event with token data for the client.
      */
     public function onNewAccessToken($data)
@@ -132,11 +132,11 @@ class Api extends EventDispatcher
      * 
      * @param  string $url
      * @param  string $httpMethod The http method to use with this request
-     * @param  array $data Optional array of data to send with request
+     * @param  string $data Optional data to send with request
      * @param  string $contentType
      * @return array The json parsed response from the server
      */
-    private function api($url, $httpMethod = 'GET', $data = array(), $contentType = null)
+    private function api($url, $httpMethod = 'GET', $data = null, $contentType = null)
     {
         // trigger an event
         $this->trigger('api_request_init', array('url' => $url));
@@ -160,7 +160,7 @@ class Api extends EventDispatcher
         // add the access token onto the url
         $url = $url . '?access_token='.$accessToken;
 
-        $this->trigger('api_request_send', array('url' => $url, 'http_method' => $httpMethod));
+        $this->trigger('api_request_send', array('url' => $url, 'http_method' => $httpMethod, 'data' => $data));
         
         $this->request
             ->setMethod($httpMethod)
