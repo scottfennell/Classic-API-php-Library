@@ -7,7 +7,7 @@ require_once 'Authentication.php';
 
 class Api extends EventDispatcher
 {
-    const BASE_URL = 'https://api.trackviadev.com/';
+    const BASE_URL = 'https://api.trackvia.com/';
 
     // URLs for API endpoints
     const DASHBOARDS_URL = 'dashboards';
