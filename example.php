@@ -5,70 +5,77 @@ require 'Trackvia/Log.php';
 use Trackvia\Api;
 use Trackvia\Log;
 
+define('CLIENT_ID', '');
+define('CLIENT_SECRET', '');
+define('USERNAME', '');
+define('PASSWORD', '');
+
 // Create a TrackviaApi object with your clientId and secret.
 // The client_id and secret are only used when you need to request a new access token.
 $tv = new Api(array(
-    'client_id'     => 'your_client_id',
-    'client_secret' => 'your_client_secret'
-    
-    // You can optionally pass in the user credentials here too
-    // 'username'      => 'sample_username',
-    // 'password'      => 'sample_password'
+    'client_id'     => CLIENT_ID,
+    'client_secret' => CLIENT_SECRET,
+    'username'      => USERNAME,
+    'password'      => PASSWORD    
 ));
 
-// load the saved token for this user
-function load_saved_token_data()
-{
-    //===========
-    // code to load the token from your database
-    //===========
-    
-    // return array(
-    //     'access_token'  => 'user_access_token',
-    //     'refresh_token' => 'user_refresh_token',
-    //     'expires_at'    => 'expires_timestamp'
-    // );
-}
-$savedToken = load_saved_token_data();
+?>
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Trackvia API v2 Example</title>
+    </head>    
+    <body>
+        
+        <h1>Trackvia API v2 Example</h1>
+        <?php 
+            if(CLIENT_ID == '' || CLIENT_SECRET == '' || USERNAME == '' || PASSWORD == ''){
+                ?>
+                <h2>Quick Start</h2>
+                <p>
+                    Your example code requires your client_id, client_secret, username and password. You can get these
+                    at the <a href="https://secure.trackvia.com/accountsettings/">Trackvia account settings page</a>. 
+                    Your username and password are the username and password you use to login to TrackVia.                    
+                </p>
+                <p>
+                    Once you have your credentials, update them in the top of the example.php file.
+                </p>
+                <?php
+            } else {
+        ?>
+            <p>            
+                Below is a simple example to show you how to get a list of all your TrackVia apps.
+            </p>
+            <?php 
+                /*
+                 * Once you have created an api object, you can then use it to quary data from the api. $tv->getApps() will
+                 * get a list of all the apps that you have in your account along with the app id. 
+                 */
+                $apps = $tv->getApps();            
+            ?>
+            <h2>Your Trackvia Apps</h2>
+            <ul>
+            <?php
+                /**
+                 * The results are an array of objects similar to this
+                 * array(
+                 *     array(
+                 *          id => 432
+                 *          name => "Some App"
+                 *     ),
+                 *     array(
+                 *          id => 3543
+                 *          name => "Some other app"
+                 *     )
+                 * )
+                 */
+                foreach ($apps as $app) {
+                    echo "<li>".$app['name']."</li>";
+                }
+            ?>
+            </ul>
+        <?php } ?>
+    </body>
+</html>
 
-// If there is saved token data to use, set it now
-if (!empty($savedToken) && isset($savedToken['access_token'])) {
-
-    $tv->setTokenData(array(
-        'access_token'  => $savedToken['access_token'],
-        'refresh_token' => $savedToken['refresh_token'],
-        'expires_at'    => $savedToken['expires_at']
-    ));
-
-} else {
-    // No token data.
-    // So you need to get the user credentials for authentication.
-    $tv->setUserCreds('sample_username', 'sample_password');
-}
-
-// extra parameters to pass in for the "new_token" event callback
-$extraParams = array('extra_params' => 'this can be whatever you want');
-
-// attach a listener function for when a new token is generated so you can save it to a database
-$tv->on('new_token', function ($tokenData, $extraParams) {
-    $accessToken = $tokenData['access_token'];
-    $refreshToken = $tokenData['refresh_token'];
-    
-    // timestamp when the access token expires
-    $expiresAt = $tokenData['expires_at'];
-
-    //============
-    // code to save token data to your database
-    //============
-
-}, $extraParams);
-
-/*
-
-//********************* 
-// Setup the logger for debugging (optional)
-//*********************
-$authLog = new Log($tv->getAuthentication());
-$log = new Log($tv);
-
-*/
