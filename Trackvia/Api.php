@@ -42,9 +42,9 @@ class Api extends EventDispatcher
 
     /**
      * Whether or not the current access token is expired.
-     * This gets flagged true when an api request is made and 
+     * This gets flagged true when an api request is made and
      * the response comes back as an error indicating expired token.
-     * 
+     *
      * @var boolean
      */
     private $isTokenExpired = false;
@@ -102,10 +102,10 @@ class Api extends EventDispatcher
 
     /**
      * Check if the response failed and if the token is expired.
-     * 
+     *
      * Any errors returned from the API server will be thrown as an Exception.
-     * 
-     * @param  array $response 
+     *
+     * @param  array $response
      * @return boolean
      */
     private function checkResponse()
@@ -129,7 +129,7 @@ class Api extends EventDispatcher
 
     /**
      * Make an api request.
-     * 
+     *
      * @param  string $url
      * @param  string $httpMethod The http method to use with this request
      * @param  string $data Optional data to send with request
@@ -161,7 +161,7 @@ class Api extends EventDispatcher
         $url = $url . '?access_token='.$accessToken;
 
         $this->trigger('api_request_send', array('url' => $url, 'http_method' => $httpMethod, 'data' => $data));
-        
+
         $this->request
             ->setMethod($httpMethod)
             ->setData($data);
@@ -194,10 +194,10 @@ class Api extends EventDispatcher
 
     /**
      * Get a list of all dashboards, or a single dashboard.
-     * 
+     *
      * Optional id parameter lets you specify one dashboard if you want.
      * Leave is empty to get all dashboards back.
-     * 
+     *
      * @param  int $id
      * @return array Array of dashboard data returned from the api
      */
@@ -205,13 +205,13 @@ class Api extends EventDispatcher
     {
         // build the url
         $url = self::BASE_URL . self::DASHBOARDS_URL . ($id ? '/'.$id : '');
-            
+
         return $this->api($url, 'GET');
     }
 
     /**
      * Get data for a single dashboard.
-     * 
+     *
      * @param  int $id
      * @return array
      */
@@ -222,10 +222,10 @@ class Api extends EventDispatcher
 
     /**
      * Get a list of all apps, or a single app.
-     * 
+     *
      * Optional app_id parameter lets you specify one app if you want.
      * Leave is empty to get all apps back.
-     * 
+     *
      * @param  int $appId
      * @return array   Array of app data returned from the api
      */
@@ -233,14 +233,14 @@ class Api extends EventDispatcher
     {
         // build the url
         $url = self::BASE_URL . self::APPS_URL . ($appId ? '/'.$appId : '');
-            
+
         return $this->api($url, 'GET');
     }
 
     /**
      * Get data for a single app by app_id.
      * This will provide you with all the tables available for this app.
-     * 
+     *
      * @param  int $appId
      * @return array Array of app data returned fromt the api
      */
@@ -252,7 +252,7 @@ class Api extends EventDispatcher
     /**
      * Get table data back for a table_id.
      * This will provide you all the views available for this table.
-     * 
+     *
      * @param  int $tableId
      * @return array Array of table data returned from the api
      */
@@ -260,7 +260,7 @@ class Api extends EventDispatcher
     {
         // build the url
         $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId;
-            
+
         return $this->api($url, 'GET');
     }
 
@@ -273,7 +273,7 @@ class Api extends EventDispatcher
     /**
      * Get view data back for a view_id.
      * This will provide you with all the records under this view.
-     * 
+     *
      * @param  int $viewId
      * @return array Array of view data returned from the api
      */
@@ -281,14 +281,14 @@ class Api extends EventDispatcher
     {
         // build the url
         $url = self::BASE_URL . self::VIEWS_URL .'/'. $viewId;
-        
+
         return $this->api($url, 'GET');
     }
 
     /**
      * Get Record data back for a record_id.
      * This will provide you with all the column data for a record.
-     * 
+     *
      * @param  int $id
      * @return array Array of Record data returned from the api
      */
@@ -296,7 +296,7 @@ class Api extends EventDispatcher
     {
         // build the url
         $url = self::BASE_URL . self::RECORDS_URL .'/'. $id;
-            
+
         return $this->api($url, 'GET');
     }
 
@@ -318,7 +318,7 @@ class Api extends EventDispatcher
 
     /**
      * Add more than one record at once to a table. Batch inserts.
-     * 
+     *
      * @param  int   $tableId
      * @param  array $records
      * @return array
@@ -335,7 +335,7 @@ class Api extends EventDispatcher
 
     /**
      * Update a single record.
-     * 
+     *
      * @param  int $id
      * @param  array $data
      * @return array
@@ -348,7 +348,7 @@ class Api extends EventDispatcher
 
     /**
      * Update multiple records.
-     * 
+     *
      * @param  int $tableId
      * @param  array $records
      * @return array
@@ -365,7 +365,7 @@ class Api extends EventDispatcher
 
     /**
      * Delete a record by id.
-     * 
+     *
      * @param  int $id
      */
     public function deleteRecord($id)
@@ -376,7 +376,7 @@ class Api extends EventDispatcher
 
     /**
      * Delete multiple records at once. Batch delete.
-     * 
+     *
      * @param  int $tableId
      * @param  array $records
      */
@@ -398,7 +398,7 @@ class Api extends EventDispatcher
     public function getForms($tableId)
     {
         $url = self::BASE_URL . self::TABLES_URL .'/'. $tableId .'/'. self::FORMS_URL;
-            
+
         return $this->api($url, 'GET');
     }
 
@@ -410,21 +410,28 @@ class Api extends EventDispatcher
     public function getForm($formId)
     {
         $url = self::BASE_URL . self::FORMS_URL .'/'. $formId;
-            
+
         return $this->api($url, 'GET');
     }
 
     /**
      * Search for records on a table.
-     * 
+     *
      * @param  int $tableId
      * @param  string $term
+     * @param  int $viewId [optional]
+     * @param  string $method (POST|GET)
      * @return array
      */
-    public function search($tableId, $term)
+    public function search($tableId, $term, $viewId = null, $method = 'GET')
     {
-        $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. urlencode($term);
-        return $this->api($url, 'GET');
+        if (is_null($viewId)) {
+          $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. urlencode($term);
+        } else {
+          $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'.$viewId.'/'. urlencode($term);
+        }
+        return $this->api($url, $method);
     }
+    
 
 }
