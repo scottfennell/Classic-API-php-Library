@@ -414,17 +414,25 @@ class Api extends EventDispatcher
         return $this->api($url, 'GET');
     }
 
+    
     /**
      * Search for records on a table.
-     * 
+     *
      * @param  int $tableId
      * @param  string $term
+     * @param  int $viewId [optional]
+     * @param  string $method (POST|GET)
      * @return array
      */
-    public function search($tableId, $term)
+    public function search($tableId, $term, $viewId = null, $method = 'GET')
     {
-        $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. urlencode($term);
-        return $this->api($url, 'GET');
+        if (is_null($viewId)) {
+          $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'. urlencode($term);
+        } else {
+          $url = self::BASE_URL . self::SEARCH_URL .'/'. $tableId .'/'.$viewId.'/'. urlencode($term);
+        }
+        return $this->api($url, $method);
     }
+    
 
 }
